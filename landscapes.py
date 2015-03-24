@@ -31,7 +31,7 @@ def grid_range(array, factor):
     block_min = ndimage.minimum(array, labels=regions, index=numpy.arange(regions.max() + 1))
     block_min.shape = (sx/factor, sy/factor)
     block_range = block_max - block_min
-    return block_max, block_min, block_range;
+    return block_max, block_min, block_range, regions;
 
 ### Define input
 input_folder = '/Users/mc14909/Dropbox/Bristol/data/glacial-landscapes/'
@@ -79,7 +79,7 @@ print 'Null values set.'
 
 ### Calculate metrics
 # Input subset?
-DEM_subset = DEM[0:3000, 0:2500]
+
 
 # Calculate slope
 """ 
@@ -164,23 +164,39 @@ point density
 """
 
 ## Calculate elevation range
-elev_max, elev_min, elev_range = grid_range(DEM_subset, factor)
+DEM_subset = DEM[0:3000, 0:2500]
+elev_max, elev_min, elev_range, regions = grid_range(DEM_subset, factor)
 
 numpy.savetxt(output_folder + 'elev_range.txt', elev_range)
 print 'Elevation range successfully calculated.'
 
 ## Calculate slope range
 slope_subset = slope[0:3000,0:2500]
-slope_max, slope_min, slope_range = grid_range(slope_subset, factor)
+slope_max, slope_min, slope_range, regions = grid_range(slope_subset, factor)
 
 numpy.savetxt(output_folder + 'slope_range.txt', slope_range)
 print 'Slope range successfully calculated.'
 
 ## Calculate hypsometry (elevation over area)
 
-""" slice array"""
+regions_list = regions.ravel()
+DEM_list = DEM_subset.ravel()
+hypso_a = numpy.concatenate(([regions_list], [DEM_subset]),axis=0)
+numpy.sort(hypso_a)
 
-# Plot hypso??
+# now to plot per unique values?!?!
+
+# now plot histograms by the first row?
+
+""" slice array iteratively -- extracting values into histograms """
+
+#for i in DEM_subset:
+#    subset = DEM_subset[i*factor:i*factor+factor]
+
+
+    
+
+# ndimage.find_objects(DEM_subset) ???
 
 # Skewness test -- threshold
 
