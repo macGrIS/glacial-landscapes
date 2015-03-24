@@ -13,19 +13,38 @@ print 'Running script: ' + scriptname + '.'
 import gdal
 from gdalconst import *
 import numpy
+import scipy
+from scipy import ndimage
 import matplotlib
 from matplotlib import pyplot as plt
 import os, sys, shutil
 
+### Functions
+# scipy.ndimage used to calculate ranges (and min and max) of values (array) for different size grids (factor)
+def grid_range(array, factor):
+    assert isinstance(factor, int), type(factor)
+    sx, sy = array.shape
+    X, Y = numpy.ogrid[0:sx, 0:sy]
+    regions = sy/factor * (X/factor) + (Y/factor)
+    block_max = ndimage.maximum(array, labels=regions, index=numpy.arange(regions.max() + 1))
+    block_max.shape = (sx/factor, sy/factor)
+    block_min = ndimage.minimum(array, labels=regions, index=numpy.arange(regions.max() + 1))
+    block_min.shape = (sx/factor, sy/factor)
+    block_range = block_max - block_min
+    return block_max, block_min, block_range;
+
 ### Define input
 input_folder = '/Users/mc14909/Dropbox/Bristol/data/glacial-landscapes/'
 output_folder = '/Users/mc14909/Dropbox/Bristol/scratch/glacial-landscapes/'
-inputDEM = input_folder + 'GIA_bedDEM_clipped.tif'
-inputSlope = input_folder + 'GDAL_slope.tif' # must be a way to calculate this (see below), until then, using gdaldem slope output
+inputDEM = input_folder + 'GIA_bedDEM_clipped2.tif'
+inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this (see below), until then, using gdaldem slope output
 
 ### Define parameters and metrics
-# size of fishnet
-grid_size = 100
+# size of grid/ fishnet (in km)
+factor = 100 
+print 'Running with a gridsize of: ' + str(factor)
+
+## Decision Tree
 # elevation range threshold lower
 
 # elevation range threshold upper
@@ -51,23 +70,24 @@ else:                   # aborts if not GeoTIFF
 DEM = gDEM.ReadAsArray(0, 0, gDEM.RasterXSize, gDEM.RasterYSize).astype(numpy.float)
 print 'DEM sucessfully loaded into array.'
 
-# Check user for No Data value?
+# Check user for No Data value??
 # DEM no data to NaN
 DEMnull = DEM[0,0] # input no data value for tiff
 a = numpy.where(DEM == DEMnull) # finds all values in array DEM equal to nodata_value
 DEM[a] = numpy.NaN # set nodata_value to NaN
-
-
+print 'Null values set.'
 
 ### Calculate metrics
+# Input subset?
+DEM_subset = DEM[0:3000, 0:2500]
 
-## Calculate slope
+# Calculate slope
 """ 
-Now I'm not a mathematician, so I'm not sure how this works -- but this method 
-of calculating slope is not correct (yeilds a roughly inverse, but still different
+Now, I'm not a mathematician, so I'm not sure how this works -- but this method 
+of calculating slope is not correct (yields a roughly inverse, but still different
 result than that of gdaldem slope, and ArcGIS slope...)
 
-Until I work this out, we use GDAL output
+Until I work this out, we use GDAL output...
 
 x, y = numpy.gradient(DEM, X) # calculate gradient with sample distance X (define)
 
@@ -105,8 +125,10 @@ print 'Slope sucessfully loaded into array.'
 
 # Slope no data to NaN
 sNull = slope[0,0]
-b = numpy.where(slope == sNull) # finds all values in array DEM equal to nodata_value
-slope[b] = numpy.NaN # set nodata_value to NaN
+b = numpy.where(slope == sNull) # finds all values in array equal to nodata value
+slope[b] = numpy.NaN # set nodata value to NaN
+print 'Null values set.'
+
 
 ## Calculate peak analysis
 # Identify peaks
@@ -116,28 +138,35 @@ http://nbviewer.ipython.org/github/demotu/BMC/blob/master/notebooks/DetectPeaks.
 
 """
 
+# convolution? moving window size -- then find peaks?
+
+
 # Peak density
 """
     density of peaks per fishnet
 """
 
 ## Calculate elevation range
+elev_max, elev_min, elev_range = grid_range(DEM_subset, factor)
 
+numpy.savetxt(output_folder + 'elev_range.txt', elev_range)
+print 'Elevation range successfully calculated.'
 
 ## Calculate slope range
+slope_subset = slope[0:3000,0:2500]
+slope_max, slope_min, slope_range = grid_range(slope_subset, factor)
 
+numpy.savetxt(output_folder + 'slope_range.txt', slope_range)
+print 'Slope range successfully calculated.'
 
 ## Calculate hypsometry (elevation over area)
 
-""" # Plot hypsometry ??? """
+# Plot hypso??
 
-# Skewness test
+# Skewness test -- threshold
 
-""" skewness threshold? """
+# Bimodal test -- threshold
 
-# Bimodal test
-
-""" bimodal threshold """
 
 ### Plot inputs
 # Plot DEM
@@ -167,8 +196,35 @@ plt.savefig(output_folder + 'slope_plot.eps', dpi=1200)
 print 'Slope plotted successfully -- ' + output_folder + 'slope_plot.eps'
 
 ### Plot outputs
-# Plot overall grid
+# Plot Peak Density
 
+# Plot Elevation Range
+fig_DEM = plt.figure(4)
+fig_DEM.suptitle('elev_range', fontsize=12)
+plt.imshow(elev_range, interpolation='nearest') # interpolation 'nearest' stops blurry figures!
+
+plt.xlabel('Distance (km)', fontsize=10)
+plt.ylabel('Distance (km)', fontsize=10)
+cbar=plt.colorbar(extend='neither')
+cbar.set_label('Elevation range (m)', fontsize=10)
+plt.savefig(output_folder + 'DEM_elev_range.eps', dpi=1200)
+
+print 'Elevation range plotted successfully -- ' + output_folder + 'DEM_elev_range.eps'
+
+# Plot Slope Range
+fig_DEM = plt.figure(5)
+fig_DEM.suptitle('slope_range', fontsize=12)
+plt.imshow(slope_range, interpolation='nearest')
+
+plt.xlabel('Distance (km)', fontsize=10)
+plt.ylabel('Distance (km)', fontsize=10)
+cbar=plt.colorbar(extend='neither')
+cbar.set_label('Slope range (deg)', fontsize=10)
+plt.savefig(output_folder + 'DEM_slope_range.eps', dpi=1200)
+
+print 'Slope range plotted successfully -- ' + output_folder + 'DEM_slope_range.eps'
+
+# Plot Classified Grid
 
 #X,Y = numpy.meshgrid(2501,3001)
 
@@ -185,4 +241,3 @@ print 'Slope plotted successfully -- ' + output_folder + 'slope_plot.eps'
 # 		-	work out skewness, and also smooth to work out bimodal??
 
 # plot results!
-
