@@ -41,7 +41,7 @@ inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this 
 
 ### Define parameters and metrics
 # size of grid/ fishnet (in km)
-factor = 100 
+factor = 20 
 print 'Running with a gridsize of: ' + str(factor)
 
 ## Decision Tree
@@ -137,13 +137,30 @@ print 'Null values set.'
 http://nbviewer.ipython.org/github/demotu/BMC/blob/master/notebooks/DetectPeaks.ipynb
 
 """
+# Set up blank grid
+peaky, peakx = DEM[0:3000,0:2500].shape
+p = numpy.zeros([peaky/factor,peakx/factor]) # new grid of factor size size -- to fill with peak density data
 
 # convolution? moving window size -- then find peaks?
 
+"""
+use window to go through array DEM
+
+fill 6 arrays
+
+one -- if cell is >= 1000 and difference between all surrounding cells is greater than 250 (all peaks)
+2 -- if cell is >= 1000 and < 1500 and diff between etc.
+3 -- if cell is >= 1500 and < 2000 and " "
+4 -- if cell is >= 2000 and < 2500 and " "
+5 -- if cell is >= 2500 and < 3000 and " "
+6 -- if cell is >= 3000 and " "
+"""
 
 # Peak density
 """
-    density of peaks per fishnet
+density of peaks per fishnet
+
+point density
 """
 
 ## Calculate elevation range
@@ -160,6 +177,8 @@ numpy.savetxt(output_folder + 'slope_range.txt', slope_range)
 print 'Slope range successfully calculated.'
 
 ## Calculate hypsometry (elevation over area)
+
+""" slice array"""
 
 # Plot hypso??
 
@@ -201,7 +220,7 @@ print 'Slope plotted successfully -- ' + output_folder + 'slope_plot.eps'
 # Plot Elevation Range
 fig_DEM = plt.figure(4)
 fig_DEM.suptitle('elev_range', fontsize=12)
-plt.imshow(elev_range, interpolation='nearest') # interpolation 'nearest' stops blurry figures!
+plt.imshow(elev_range, interpolation='nearest', extent=[0,2500,0,3000]) # interpolation 'nearest' stops blurry figures!
 
 plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
@@ -214,7 +233,7 @@ print 'Elevation range plotted successfully -- ' + output_folder + 'DEM_elev_ran
 # Plot Slope Range
 fig_DEM = plt.figure(5)
 fig_DEM.suptitle('slope_range', fontsize=12)
-plt.imshow(slope_range, interpolation='nearest')
+plt.imshow(slope_range, interpolation='nearest', extent=[0,2500,0,3000])
 
 plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
