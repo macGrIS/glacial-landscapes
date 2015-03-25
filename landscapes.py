@@ -41,7 +41,7 @@ inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this 
 
 ### Define parameters and metrics
 # size of grid/ fishnet (in km)
-factor = 20 
+factor = 100
 print 'Running with a gridsize of: ' + str(factor)
 
 ## Decision Tree
@@ -177,14 +177,32 @@ slope_max, slope_min, slope_range, regions = grid_range(slope_subset, factor)
 numpy.savetxt(output_folder + 'slope_range.txt', slope_range)
 print 'Slope range successfully calculated.'
 
+# Need to classify these... put into binary grid?
+
 ## Calculate hypsometry (elevation over area)
 
-regions_list = regions.ravel()
-DEM_list = DEM_subset.ravel()
-hypso_a = numpy.concatenate(([regions_list], [DEM_subset]),axis=0)
-numpy.sort(hypso_a)
+# Monumentally slow peice of code ... 
+# NOT CORRECT
+regions_list = regions.ravel() # turns grid label into 1d array
+DEM_list = DEM_subset.ravel() # turns DEM into 1d array (conforming to regions_list)
+hypso_a = numpy.concatenate(([regions_list], [DEM_list]),axis=0)
+last_box = numpy.max(hypso_a[0,]) # finds the last label for the grid
+hypso_b = numpy.swapaxes(hypso_a, 0, 1)
 
-# now to plot per unique values?!?!
+for i in range(0,4): # 0,last_box
+    A = numpy.where(hypso_b[:,0] == float(i))
+    hypso_c = hypso_b[A,1]
+    hypso_d = numpy.swapaxes(hypso_c, 0, 1)
+    # get shape, if shape is < it should (due to NaNs) then don't run??
+    if numpy.shape(numpy.isnan(hypso_d[:,0])) > 1000: # 1000 needs a function
+        print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
+        continue
+    plt.hist(hypso_d[~numpy.isnan(hypso_d)], bins=100) # get rid of remaining nans (shouldn't be more than X% of total)
+    plt.show()
+
+
+
+# now to plot per unique values?!?! -- hsplit?!
 
 # now plot histograms by the first row?
 
