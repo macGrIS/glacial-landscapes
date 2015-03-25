@@ -15,6 +15,7 @@ from gdalconst import *
 import numpy
 import scipy
 from scipy import ndimage
+from scipy import stats
 import matplotlib
 from matplotlib import pyplot as plt
 import os, sys, shutil
@@ -191,23 +192,36 @@ hypso_a = numpy.concatenate(([regions_list], [DEM_list]),axis=0)
 last_box = numpy.max(hypso_a[0,]) # finds the last label for the grid
 hypso_b = numpy.swapaxes(hypso_a, 0, 1)
 
-for i in range(0,100): # 0,last_box
+for i in range(0,10): # 0,last_box
     A = numpy.where(hypso_b[:,0] == float(i))
     hypso_c = hypso_b[A,1]
     hypso_d = numpy.swapaxes(hypso_c, 0, 1)
+    # Weed out null data/ NaNs
     # null_data = numpy.isnan(hypso_d[:,0]).any() # too perscriptive? 
     null_data = numpy.isnan(hypso_d[:,0]).all() # too liberal?? maybe use 10%?? (not sure how)
-    
     if null_data == True: 
         print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
         continue
     else:
-        plt.hist(hypso_d[~numpy.isnan(hypso_d)], bins=100) # get rid of remaining NaNs
-        plt.show()
-# Skewness test -- threshold
-
-# Bimodal test -- threshold
-
+        n, bins, patches = plt.hist(hypso_d[~numpy.isnan(hypso_d)], bins=100) # get rid of remaining NaNs
+        #plt.show()
+    # Skewness test -- threshold
+    skew = stats.skew(hypso_d[~numpy.isnan(hypso_d)])
+    #if skew > 0.1:
+        # output to array? 
+    """ get everything to output to an array with grid numbers -- then can plot, and sum them (binary masks for each decision tree)?"""
+        
+    # Bimodal test -- threshold
+    bincentres = 0.5*(bins[1:]+bins[:-1]) # find bincenters (as bins produces a 101 length array)
+    modal = numpy.concatenate(([n],[bincentres])) # joins n (number in bin) with bincentres (bin placement)
+    modal = numpy.swapaxes(modal, 0, 1)
+    # sort data/ rank data
+    sort = numpy.flipud(modal[modal[:,0].argsort()])
+    peak_location
+""" sort is wrong -- I need a location, i.e 1:100 for the bin count (the peak), as in need to change bin centres to just a number... """
+    
+    
+    
 """ need to output to a grid... """
 
 ### Plot inputs
