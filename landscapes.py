@@ -40,9 +40,10 @@ inputDEM = input_folder + 'GIA_bedDEM_clipped2.tif'
 inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this (see below), until then, using gdaldem slope output
 
 ### Define parameters and metrics
-# size of grid/ fishnet (in km)
+# size of grid/ fishnet (in km -- for 1km posting data)
 factor = 100
-print 'Running with a gridsize of: ' + str(factor)
+
+print 'Grid cell size = ' + str(factor) + ' km.' # units depend on pixel 'size'
 
 ## Decision Tree
 # elevation range threshold lower
@@ -68,7 +69,7 @@ else:                   # aborts if not GeoTIFF
 
 # Read DEM into numpy array
 DEM = gDEM.ReadAsArray(0, 0, gDEM.RasterXSize, gDEM.RasterYSize).astype(numpy.float)
-print 'DEM sucessfully loaded into array.'
+print 'DEM sucessfully loaded into array...'
 
 # Check user for No Data value??
 # DEM no data to NaN
@@ -82,6 +83,7 @@ print 'Null values set.'
 
 
 # Calculate slope
+print 'Calculating slope...'
 """ 
 Now, I'm not a mathematician, so I'm not sure how this works -- but this method 
 of calculating slope is not correct (yields a roughly inverse, but still different
@@ -121,7 +123,7 @@ else:                   # aborts if not GeoTIFF
 
 # Read slope into numpy array
 slope = gSlope.ReadAsArray(0, 0, gSlope.RasterXSize, gSlope.RasterYSize).astype(numpy.float)
-print 'Slope sucessfully loaded into array.'
+print 'Slope sucessfully loaded into array...'
 
 # Slope no data to NaN
 sNull = slope[0,0]
@@ -164,62 +166,49 @@ point density
 """
 
 ## Calculate elevation range
+print 'Calculating elevation range per grid cell...'
 DEM_subset = DEM[0:3000, 0:2500]
 elev_max, elev_min, elev_range, regions = grid_range(DEM_subset, factor)
-
-numpy.savetxt(output_folder + 'elev_range.txt', elev_range)
-print 'Elevation range successfully calculated.'
+# numpy.savetxt(output_folder + 'elev_range.txt', elev_range)
+print 'Done.'
 
 ## Calculate slope range
 slope_subset = slope[0:3000,0:2500]
 slope_max, slope_min, slope_range, regions = grid_range(slope_subset, factor)
+print 'Calculating elevation range per grid cell...'
+# numpy.savetxt(output_folder + 'slope_range.txt', slope_range)
+print 'Done.'
 
-numpy.savetxt(output_folder + 'slope_range.txt', slope_range)
-print 'Slope range successfully calculated.'
-
-# Need to classify these... put into binary grid?
+"""  Need to classify these... put into binary grid? """
 
 ## Calculate hypsometry (elevation over area)
-
 # Monumentally slow peice of code ... 
-# NOT CORRECT
+""" Chuck this into a defined function and return the necessary?? """
+print 'Calculating hypsometry per grid cell...'
 regions_list = regions.ravel() # turns grid label into 1d array
 DEM_list = DEM_subset.ravel() # turns DEM into 1d array (conforming to regions_list)
 hypso_a = numpy.concatenate(([regions_list], [DEM_list]),axis=0)
 last_box = numpy.max(hypso_a[0,]) # finds the last label for the grid
 hypso_b = numpy.swapaxes(hypso_a, 0, 1)
 
-for i in range(0,4): # 0,last_box
+for i in range(0,100): # 0,last_box
     A = numpy.where(hypso_b[:,0] == float(i))
     hypso_c = hypso_b[A,1]
     hypso_d = numpy.swapaxes(hypso_c, 0, 1)
-    # get shape, if shape is < it should (due to NaNs) then don't run??
-    if numpy.shape(numpy.isnan(hypso_d[:,0])) > 1000: # 1000 needs a function
+    # null_data = numpy.isnan(hypso_d[:,0]).any() # too perscriptive? 
+    null_data = numpy.isnan(hypso_d[:,0]).all() # too liberal?? maybe use 10%?? (not sure how)
+    
+    if null_data == True: 
         print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
         continue
-    plt.hist(hypso_d[~numpy.isnan(hypso_d)], bins=100) # get rid of remaining nans (shouldn't be more than X% of total)
-    plt.show()
-
-
-
-# now to plot per unique values?!?! -- hsplit?!
-
-# now plot histograms by the first row?
-
-""" slice array iteratively -- extracting values into histograms """
-
-#for i in DEM_subset:
-#    subset = DEM_subset[i*factor:i*factor+factor]
-
-
-    
-
-# ndimage.find_objects(DEM_subset) ???
-
+    else:
+        plt.hist(hypso_d[~numpy.isnan(hypso_d)], bins=100) # get rid of remaining NaNs
+        plt.show()
 # Skewness test -- threshold
 
 # Bimodal test -- threshold
 
+""" need to output to a grid... """
 
 ### Plot inputs
 # Plot DEM
