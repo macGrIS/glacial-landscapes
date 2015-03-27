@@ -186,9 +186,8 @@ slope_range_list = slope_range.ravel()
 
 """  Need to classify these... put into binary, then grid (based upon thresholds above)? """
 
-## Calculate hypsometry (elevation over area)
+## Calculate hypsometry (elevation over area) -- chuck this into a defined function?
 # Monumentally inefficient loop (probably...)
-""" Chuck this into a defined function and return the necessary?? """
 print 'Calculating hypsometry per grid cell...'
 regions_list = regions.ravel() # turns grid label into 1d array
 DEM_list = DEM_subset.ravel() # turns DEM into 1d array (conforming to regions_list)
@@ -209,6 +208,7 @@ for i in range(0,int(last_box)): # 0,last_box
         print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
         continue
     else:
+        fig_hist = plt.figure(1)
         n, bins, patches = plt.hist(hypso_d[~numpy.isnan(hypso_d)], bins=100) # Histo plot, get rid of remaining NaNs
         #plt.show() # can output plots, but slow...!!
         
@@ -260,7 +260,7 @@ bimodal_test[bimodal_test>0]=1 # make bimodal_test binary
 
 ### Plot inputs
 # Plot DEM
-fig_DEM = plt.figure(1)
+fig_DEM = plt.figure(2)
 fig_DEM.suptitle('Greenland bedrock GIA DEM', fontsize=12)
 plt.imshow(DEM, cmap='terrain', vmax=2000, vmin=-800) # vmax is a way of stretching colour map
 
@@ -273,7 +273,7 @@ plt.savefig(output_folder + 'DEM_plot.eps', dpi=1200)
 print 'DEM plotted successfully -- ' + output_folder + 'DEM_plot.eps'
 
 # Plot slope
-fig_slope = plt.figure(2)
+fig_slope = plt.figure(3)
 fig_slope.suptitle('Slope of Greenland bedrock (GIA) DEM', fontsize=12)
 plt.imshow(slope, cmap='jet_r') # _r is a way to reverse colour map
 
@@ -297,7 +297,7 @@ plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
 cbar.set_label('Elevation range (m)', fontsize=10)
-plt.savefig(output_folder + 'DEM_elev_range.eps', dpi=1200)
+plt.savefig(output_folder + 'DEM_elev_range' + str(factor) + '.eps', dpi=1200)
 
 print 'Elevation range plotted successfully -- ' + output_folder + 'DEM_elev_range.eps'
 
@@ -310,7 +310,7 @@ plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
 cbar.set_label('Slope range (deg)', fontsize=10)
-plt.savefig(output_folder + 'DEM_slope_range.eps', dpi=1200)
+plt.savefig(output_folder + 'DEM_slope_range' + str(factor) + '.eps', dpi=1200)
 
 print 'Slope range plotted successfully -- ' + output_folder + 'DEM_slope_range.eps'
 
