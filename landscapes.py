@@ -13,10 +13,8 @@ print 'Running script: ' + scriptname + '.'
 import gdal
 from gdalconst import *
 import numpy
-import scipy
 from scipy import ndimage
 from scipy import stats
-import matplotlib
 from matplotlib import pyplot as plt
 import os, sys, shutil
 
@@ -42,7 +40,7 @@ inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this 
 
 ### Define parameters and metrics
 # size of grid/ fishnet (in km -- for 1km posting data)
-factor = 100
+factor = 50
 
 print 'Grid cell size = ' + str(factor) + ' km.' # units depend on pixel 'size'
 
@@ -173,6 +171,10 @@ elev_max, elev_min, elev_range, regions = grid_range(DEM_subset, factor)
 # numpy.savetxt(output_folder + 'elev_range.txt', elev_range)
 print 'Done.'
 
+elev_range_list = elev_range.ravel()
+#elev_test = 
+#elev_test[elev_range_list>elev_thres_1] = 1
+
 ## Calculate slope range
 slope_subset = slope[0:3000,0:2500]
 slope_max, slope_min, slope_range, regions = grid_range(slope_subset, factor)
@@ -180,49 +182,81 @@ print 'Calculating elevation range per grid cell...'
 # numpy.savetxt(output_folder + 'slope_range.txt', slope_range)
 print 'Done.'
 
-"""  Need to classify these... put into binary grid? """
+slope_range_list = slope_range.ravel()
+
+"""  Need to classify these... put into binary, then grid (based upon thresholds above)? """
 
 ## Calculate hypsometry (elevation over area)
-# Monumentally slow peice of code ... 
+# Monumentally inefficient loop (probably...)
 """ Chuck this into a defined function and return the necessary?? """
 print 'Calculating hypsometry per grid cell...'
 regions_list = regions.ravel() # turns grid label into 1d array
 DEM_list = DEM_subset.ravel() # turns DEM into 1d array (conforming to regions_list)
 hypso_a = numpy.concatenate(([regions_list], [DEM_list]),axis=0)
-last_box = numpy.max(hypso_a[0,]) # finds the last label for the grid
+last_box = 1+numpy.max(hypso_a[0,]) # finds the last label for the grid
 hypso_b = numpy.swapaxes(hypso_a, 0, 1)
+skewness_test = numpy.zeros([last_box, 1])
+bimodal_test = numpy.zeros([last_box, 1])
 
-for i in range(0,10): # 0,last_box
+for i in range(0,int(last_box)): # 0,last_box
     A = numpy.where(hypso_b[:,0] == float(i))
     hypso_c = hypso_b[A,1]
     hypso_d = numpy.swapaxes(hypso_c, 0, 1)
     # Weed out null data/ NaNs
-    # null_data = numpy.isnan(hypso_d[:,0]).any() # too perscriptive? 
-    null_data = numpy.isnan(hypso_d[:,0]).all() # too liberal?? maybe use 10%?? (not sure how)
+    null_data = numpy.isnan(hypso_d[:,0]).any() # too perscriptive? 
+    # null_data = numpy.isnan(hypso_d[:,0]).all() # too liberal? maybe use 10%?? (not sure how, also arbitrary)
     if null_data == True: 
         print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
         continue
     else:
-        n, bins, patches = plt.hist(hypso_d[~numpy.isnan(hypso_d)], bins=100) # get rid of remaining NaNs
-        #plt.show()
-    # Skewness test -- threshold
-    skew = stats.skew(hypso_d[~numpy.isnan(hypso_d)])
-    #if skew > 0.1:
-        # output to array? 
-    """ get everything to output to an array with grid numbers -- then can plot, and sum them (binary masks for each decision tree)?"""
+        n, bins, patches = plt.hist(hypso_d[~numpy.isnan(hypso_d)], bins=100) # Histo plot, get rid of remaining NaNs
+        #plt.show() # can output plots, but slow...!!
         
-    # Bimodal test -- threshold
+    ## Skewness test
+    skew = stats.skew(hypso_d[~numpy.isnan(hypso_d)]) # perform skewness measure on all but NaN values
+    if skew > 0.1: # Any grid with a skew of greater than 0.1 is classed as positively skewed (change this to threshold up top)
+        skewness_test[i,0] = 1
+    else:
+        skewness_test[i,0] = 0
+        
+    ## Bimodal test -- are there other ways to do this?
+    # Thresholds    
+    x_threshold = 0.4 # X-axis (Distance/ Location) threshold -- a percentage of the range of the data, bins further away from this (around peak bin) can be considered separate peaks
+    y_threshold = 0.2 # Y-axis (Peak) threshold -- a percentage of the count in the peak bin, bins with more members can be considered peaks
+    
     bincentres = 0.5*(bins[1:]+bins[:-1]) # find bincenters (as bins produces a 101 length array)
-    modal = numpy.concatenate(([n],[bincentres])) # joins n (number in bin) with bincentres (bin placement)
-    modal = numpy.swapaxes(modal, 0, 1)
-    # sort data/ rank data
-    sort = numpy.flipud(modal[modal[:,0].argsort()])
-    peak_location
-""" sort is wrong -- I need a location, i.e 1:100 for the bin count (the peak), as in need to change bin centres to just a number... """
+    histo_data = numpy.concatenate(([n],[bincentres])) # joins n (number in bin) with bincentres (bin placement)
+    histo_data = numpy.swapaxes(histo_data, 0, 1)
     
+    # Rank histo data -- to find peak
+    bins_ranked = numpy.concatenate(([numpy.sort(n)],[numpy.argsort(n, axis=0)]))
+    bins_ranked = numpy.swapaxes(bins_ranked, 0, 1)
+    sort = numpy.flipud(bins_ranked)
     
+    peak_location = sort[0,1] # the rank of the bin location -- where the bin (out of 100 along x) was
+    peak_count = sort[0,0] # the count of the largest bin count -- how many values were that bin
     
-""" need to output to a grid... """
+    # Calculate distance from the largest bin
+    distance = numpy.sqrt((histo_data[:,1]-histo_data[peak_location,1])**2) 
+    
+    # Calculate threshold above which data can be considered a peak
+    peak_threshold = y_threshold*peak_count
+    
+    # Calculate threshold distance over which data can be considered a separate peak
+    data_range = (numpy.max(histo_data[:,1]-numpy.min(histo_data[:,1])))
+    distance_threshold = x_threshold*data_range
+
+    # Test   
+    test = numpy.zeros([100, 1])
+    test[histo_data[:,0]>peak_threshold]=1
+    test[distance<distance_threshold]=0
+
+    # Result
+    bimodal_test[i,0]=numpy.sum(test)
+
+bimodal_test[bimodal_test>0]=1 # make bimodal_test binary
+
+""" now need to output to grid? opposite of ravel? """
 
 ### Plot inputs
 # Plot DEM
