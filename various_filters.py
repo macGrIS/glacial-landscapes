@@ -21,7 +21,7 @@ inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this 
 
 ### Define parameters and metrics
 # size of grid/ fishnet (in km -- for 1km posting data)
-factor = 50
+factor = 80
 print 'Grid cell size = ' + str(factor) + ' km.' # units depend on pixel 'size'
 
 ### Call input DEM
@@ -69,7 +69,7 @@ plt.savefig(output_folder + 'gaussian_plot.eps', dpi=1200)
 # Plot slope
 fig_slope = plt.figure(2)
 fig_slope.suptitle('Difference', fontsize=12)
-plt.imshow(crevasse_array) # _r is a way to reverse colour map
+plt.imshow(crevasse_array, vmin=-1000, vmax=1000) # _r is a way to reverse colour map
 
 plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
