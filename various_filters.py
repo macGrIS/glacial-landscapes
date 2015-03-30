@@ -21,7 +21,7 @@ inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this 
 
 ### Define parameters and metrics
 # size of grid/ fishnet (in km -- for 1km posting data)
-factor = 80
+factor = 50
 print 'Grid cell size = ' + str(factor) + ' km.' # units depend on pixel 'size'
 
 ### Call input DEM
@@ -53,8 +53,27 @@ print 'Null values set.'
 ## Gaussian
 gaussian = ndimage.filters.gaussian_filter(DEM, factor/2, order=0,mode='reflect')
 
-
 crevasse_array = DEM - gaussian
+
+## Edge detection
+# Sobel
+
+edge_neg1 = ndimage.filters.sobel(DEM,mode='reflect')
+edge_zero = ndimage.filters.sobel(DEM, axis=0, mode='reflect')
+edge_plus1 = ndimage.filters.sobel(DEM, axis=1, mode='reflect')
+
+edges = edge_neg1 + edge_zero + edge_plus1
+
+edges_2 = edges + DEM
+
+# Prewitt
+pedge_neg1 = ndimage.filters.prewitt(DEM,mode='reflect')
+pedge_zero = ndimage.filters.prewitt(DEM, axis=0, mode='reflect')
+pedge_plus1 = ndimage.filters.prewitt(DEM, axis=1, mode='reflect')
+
+pedges = pedge_neg1 + pedge_zero + pedge_plus1
+
+pedges_2 = pedges + DEM
 
 ### Plots
 # Gaussian
@@ -68,13 +87,32 @@ plt.savefig(output_folder + 'gaussian_plot.eps', dpi=1200)
 
 # Plot slope
 fig_slope = plt.figure(2)
-fig_slope.suptitle('Difference', fontsize=12)
+fig_slope.suptitle('Difference image', fontsize=12)
 plt.imshow(crevasse_array, vmin=-1000, vmax=1000) # _r is a way to reverse colour map
 
 plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
 plt.savefig(output_folder + 'difference_plot.eps', dpi=1200)
+
+# Plot edges
+fig_slope = plt.figure(3)
+fig_slope.suptitle('Edges', fontsize=12)
+plt.imshow(edges_2, vmin=-1000, vmax=1000) # _r is a way to reverse colour map
+
+plt.xlabel('Distance (km)', fontsize=10)
+plt.ylabel('Distance (km)', fontsize=10)
+cbar=plt.colorbar(extend='neither')
+plt.savefig(output_folder + 'edges.eps', dpi=1200)
+
+fig_slope = plt.figure(4)
+fig_slope.suptitle('P_Edges', fontsize=12)
+plt.imshow(pedges_2, vmin=-1000, vmax=1000) # _r is a way to reverse colour map
+
+plt.xlabel('Distance (km)', fontsize=10)
+plt.ylabel('Distance (km)', fontsize=10)
+cbar=plt.colorbar(extend='neither')
+plt.savefig(output_folder + 'pedges.eps', dpi=1200)
 
 #
 ## Plot Elevation Range
