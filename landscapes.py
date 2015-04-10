@@ -41,20 +41,22 @@ inputDEM = input_folder + 'GIA_bedDEM_clipped2.tif'
 inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this (see below), until then, using gdaldem slope output
 
 ### Define parameters and metrics
-# size of grid/ fishnet (in km -- for 1km posting data) -- LOOK INTO FUZZY BOXES LATER
-factor = 50
+## size of grid/ fishnet (in km -- for 1km posting data) -- LOOK INTO FUZZY BOXES LATER
+factor = 100 # doesn't seem to work for 150, or 200km grid sizes (why?)
 print 'Grid cell size = ' + str(factor) + ' km.' # units depend on pixel 'size'
+
+## Input subsets (specific catchments?) - "do you wish to subset the data?" (perhaps at end...?)
+#local_factor = 50 # factor of subset
 
 ## Decision Tree (based upon Jamieson, et al. 2014) -- Change for 'sensitivity analysis' -- ask for custom, or standard.
 # Elevation range threshold lower
-tree_elev_lower_thres = 1000
+#tree_elev_lower_thres = 1000 # orig < 1000 m
 # Elevation range threshold upper
-tree_elev_upper_thres = 2000
 # Peak density threshold
-tree_slope_thres = 25
+#tree_elev_upper_thres = 2000 # orig >= 1000 and < 2000 m
+#tree_pd_thres = 20 # orig <= 25
 # Slope threshold
-tree_slope_thres = 5
-
+#tree_slope_thres = 45 # orig <= 5
 
 ### Call input DEM
 # Open DEM
@@ -76,10 +78,12 @@ a = numpy.where(DEM == DEMnull) # finds all values in array DEM equal to nodata_
 DEM[a] = numpy.NaN # set nodata_value to NaN
 print 'Null values set.'
 
-### Calculate metrics
-## Input subset - "do you wish to subset the data?" (perhaps at end...?)
+## Set up blank grid based upon factor
+peaky, peakx = DEM[0:3000,0:2500].shape
+p = numpy.zeros([peaky/factor,peakx/factor]) # new grid of factor size size -- to fill with peak density data
 
-## Calculate slope
+### Calculate metrics
+## Calculate slope -- need to add in this (possibly solved through convolution)
 print 'Calculating slope...'
 """ 
 Now, I'm not a mathematician, so I'm not sure how this works -- but this method 
@@ -132,9 +136,6 @@ print 'Null values set.'
 http://nbviewer.ipython.org/github/demotu/BMC/blob/master/notebooks/DetectPeaks.ipynb
 
 """
-# Set up blank grid
-peaky, peakx = DEM[0:3000,0:2500].shape
-p = numpy.zeros([peaky/factor,peakx/factor]) # new grid of factor size size -- to fill with peak density data
 
 # convolution? moving window size -- then find peaks? -- have a look in the 'calcSlopeDegrees.py'
 
@@ -158,6 +159,8 @@ density of peaks per fishnet
 point density
 """
 
+
+
 ## Calculate elevation range
 print 'Calculating elevation range per grid cell...'
 DEM_subset = DEM[0:3000, 0:2500]
@@ -165,9 +168,11 @@ elev_max, elev_min, elev_range, regions = grid_range(DEM_subset, factor)
 # numpy.savetxt(output_folder + 'elev_range.txt', elev_range)
 print 'Done.'
 
-elev_range_list = elev_range.ravel()
-#elev_test = 
-#elev_test[elev_range_list>elev_thres_1] = 1
+# Elevation test for decision tree
+#elev_test = elev_range
+#elev_test[elev_test>elev_thres_1] = 1 ## may not work -- as two levels?
+#
+#if elev_test[elev_test>lower]
 
 ## Calculate slope range
 slope_subset = slope[0:3000,0:2500]
@@ -176,7 +181,10 @@ print 'Calculating slope range per grid cell...'
 # numpy.savetxt(output_folder + 'slope_range.txt', slope_range)
 print 'Done.'
 
-slope_range_list = slope_range.ravel()
+# Slope test for decision tree
+#slope_test = slope_range
+# need an if loop otherwise will overwrite... 
+#slope_test[slope_range>tree_slope_thres] = 1
 
 """  Need to classify these... put into binary, then grid (based upon thresholds above)? """
 
@@ -222,7 +230,7 @@ for i in range(0,int(last_box)): # 0,last_box
     bincentres = 0.5*(bins[1:]+bins[:-1]) # find bincenters (as bins produces a 101 length array)
     histo_data = numpy.concatenate(([n],[bincentres])) # joins n (number in bin) with bincentres (bin placement)
     histo_data = numpy.swapaxes(histo_data, 0, 1)
-    # Rank histo data -- to find peak
+    # Rank histo data -- to find peak (perhaps need to change nomenclature away from 'peak')
     bins_ranked = numpy.concatenate(([numpy.sort(n)],[numpy.argsort(n, axis=0)]))
     bins_ranked = numpy.swapaxes(bins_ranked, 0, 1)
     sort = numpy.flipud(bins_ranked)
@@ -244,11 +252,24 @@ for i in range(0,int(last_box)): # 0,last_box
 
 bimodal_test[bimodal_test>0]=1 # make bimodal_test binary
 
-bimodal_grid=bimodal_test.reshape(elev_range.shape) # need to automate reshape -- perhaps elev_range.shape? (but if thats been done wrong then, could go wrong later)
-skewness_grid = skewness_test.reshape(elev_range.shape)
+bimodal_grid=bimodal_test.reshape(p.shape) # need to automate reshape -- perhaps elev_range.shape? (but if thats been done wrong then, could go wrong later)
+skewness_grid = skewness_test.reshape(p.shape)
 
-### Plot inputs
-# Plot DEM
+### Decision Tree
+
+"""
+is cell in bimodal_grid == 1:
+    
+    else 
+"""
+
+# Use ravelled lists...?
+
+# if 
+
+### Plotting
+## Inputs
+# DEM
 fig_DEM = plt.figure(2)
 fig_DEM.suptitle('Greenland bedrock GIA DEM', fontsize=12)
 plt.imshow(DEM, cmap='terrain', vmax=2000, vmin=-800) # vmax is a way of stretching colour map
@@ -259,7 +280,7 @@ cbar.set_label('Elevation (m)', fontsize=10)
 plt.savefig(output_folder + 'DEM_plot.eps', dpi=1200)
 print 'DEM plotted successfully -- ' + output_folder + 'DEM_plot.eps'
 
-# Plot slope
+# Slope
 fig_slope = plt.figure(3)
 fig_slope.suptitle('Slope of Greenland bedrock (GIA) DEM', fontsize=12)
 plt.imshow(slope, cmap='jet_r') # _r is a way to reverse colour map
@@ -270,10 +291,15 @@ cbar.set_label('slope', fontsize=10)
 plt.savefig(output_folder + 'slope_plot.eps', dpi=1200)
 print 'Slope plotted successfully -- ' + output_folder + 'slope_plot.eps'
 
-### Plot outputs
-# Plot Peak Density
+## Outputs
+# Peak Density
 
-# Plot Elevation Range
+"""
+need to do mulitple plot with different 'peak' elevations as coloured dots,
+then with the peak denisty grid underlain
+"""
+
+# Elevation Range
 fig_elev_range = plt.figure(4)
 fig_elev_range.suptitle('elev_range', fontsize=12)
 plt.imshow(elev_range, interpolation='nearest', extent=[0,2500,0,3000]) # interpolation 'nearest' stops blurry figures!
@@ -284,7 +310,7 @@ cbar.set_label('Elevation range (m)', fontsize=10)
 plt.savefig(output_folder + 'DEM_elev_range' + str(factor) + '.eps', dpi=1200)
 print 'Elevation range plotted successfully -- ' + output_folder + 'DEM_elev_range.eps'
 
-# Plot Slope Range
+# Slope Range
 fig_slope_range = plt.figure(5)
 fig_slope_range.suptitle('slope_range', fontsize=12)
 plt.imshow(slope_range, interpolation='nearest', extent=[0,2500,0,3000])
@@ -295,7 +321,7 @@ cbar.set_label('Slope range (deg)', fontsize=10)
 plt.savefig(output_folder + 'DEM_slope_range' + str(factor) + '.eps', dpi=1200)
 print 'Slope range plotted successfully -- ' + output_folder + 'DEM_slope_range.eps'
 
-# Plot Binary Skewness
+# Binary Skewness (test)
 fig_skew = plt.figure(6)
 fig_skew.suptitle('skewness', fontsize=12)
 plt.imshow(skewness_grid, cmap='Greys', interpolation='nearest', extent=[0,2500,0,3000])
@@ -305,7 +331,7 @@ cbar=plt.colorbar(extend='neither')
 plt.savefig(output_folder + 'DEM_skewness_test' + str(factor) + '.eps', dpi=1200)
 print 'Skewness mask plotted successfully -- ' + output_folder + 'DEM_skewness_test.eps'
 
-# Plot Binary Modal test
+# Binary Modal (test)
 fig_bimodal = plt.figure(7)
 fig_bimodal.suptitle('bimodal', fontsize=12)
 plt.imshow(bimodal_grid, cmap='Greys', interpolation='nearest', extent=[0,2500,0,3000])
@@ -315,10 +341,8 @@ cbar=plt.colorbar(extend='neither')
 plt.savefig(output_folder + 'DEM_bimodal_test' + str(factor) + '.eps', dpi=1200)
 print 'Bimodal mask plotted successfully -- ' + output_folder + 'DEM_bimodal_test.eps'
 
-
 # Plot Classified Grid
-
-# Create fishnet/ subset grid
+#fig_classified
 
 # need to set up geolocation/ geotransform
 
