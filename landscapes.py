@@ -31,7 +31,9 @@ def grid_range(array, factor):
     block_min = ndimage.minimum(array, labels=regions, index=numpy.arange(regions.max() + 1))
     block_min.shape = (sx/factor, sy/factor)
     block_range = block_max - block_min
-    return block_max, block_min, block_range, regions;
+    block_sum = ndimage.sum(array, labels=regions, index=numpy.arange(regions.max() + 1))
+    block_sum.shape = (sx/factor, sy/factor)
+    return block_max, block_min, block_range, block_sum, regions;
 
 ### Ask user for deets...??
 ### Define input
@@ -42,7 +44,7 @@ inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this 
 
 ### Define parameters and metrics
 ## size of grid/ fishnet (in km -- for 1km posting data) -- LOOK INTO FUZZY BOXES LATER
-factor = 100 # doesn't seem to work for 150, or 200km grid sizes (why?)
+factor = 25 # doesn't seem to work for 150, or 200km grid sizes (why?)
 print 'Grid cell size = ' + str(factor) + ' km.' # units depend on pixel 'size'
 
 ## Input subsets (specific catchments?) - "do you wish to subset the data?" (perhaps at end...?)
@@ -130,41 +132,84 @@ slope[b] = numpy.NaN # set nodata value to NaN
 print 'Null values set.'
 
 ## Calculate peak analysis
+# Open peak detection results from Landserf -- value of 5 depicts summit (to use for peak density)
+# Currently only using peaks1000 (as it displays ALL peaks over 1000 m in elevation) -- may require others later
+input_peaks1000 = input_folder + 'peak_anal/peaks_1000.tif'
+#input_peaks1500 = input_folder + 'peak_anal/peaks_1500.tif'
+#input_peaks2000 = input_folder + 'peak_anal/peaks_2000.tif'
+#input_peaks2500 = input_folder + 'peak_anal/peaks_2500.tif'
+#input_peaks3000 = input_folder + 'peak_anal/peaks_3000.tif'
+
+gPeaks1000 = gdal.Open(input_peaks1000, GA_ReadOnly)
+peaks1000 = gPeaks1000.ReadAsArray(0, 0, gPeaks1000.RasterXSize, gPeaks1000.RasterYSize).astype(numpy.float)
+#gPeaks1500 = gdal.Open(input_peaks2500, GA_ReadOnly)
+#peaks1500 = gPeaks1500.ReadAsArray(0, 0, gPeaks1500.RasterXSize, gPeaks1500.RasterYSize).astype(numpy.float)
+#gPeaks2000 = gdal.Open(input_peaks2000, GA_ReadOnly)
+#peaks2000 = gPeaks2000.ReadAsArray(0, 0, gPeaks2000.RasterXSize, gPeaks2000.RasterYSize).astype(numpy.float)
+#gPeaks2500 = gdal.Open(input_peaks2500, GA_ReadOnly)
+#peaks2500 = gPeaks2500.ReadAsArray(0, 0, gPeaks2500.RasterXSize, gPeaks2500.RasterYSize).astype(numpy.float)
+#gPeaks3000 = gdal.Open(input_peaks3000, GA_ReadOnly)
+#peaks3000 = gPeaks3000.ReadAsArray(0, 0, gPeaks3000.RasterXSize, gPeaks3000.RasterYSize).astype(numpy.float)
+
+peaks1000[numpy.logical_or(peaks1000 > 5., peaks1000 < 5.)] = 0.
+peaks1000[peaks1000 == 5.] = 1.
+#peaks1500[numpy.logical_or(peaks1500 > 5., peaks1500 < 5.)] = 0.
+#peaks1500[peaks1500 == 5.] = 1.
+#peaks2000[numpy.logical_or(peaks2000 > 5., peaks2000 < 5.)] = 0.
+#peaks2000[peaks2000 == 5.] = 1.
+#peaks2500[numpy.logical_or(peaks2500 > 5., peaks2500 < 5.)] = 0.
+#peaks2500[peaks2500 == 5.] = 1.
+#peaks3000[numpy.logical_or(peaks3000 > 5., peaks3000 < 5.)] = 0.
+#peaks3000[peaks3000 == 5.] = 1.
+
+
 # Identify peaks
 """
-    need to open DEM, and identify high points/ peaks within array of 1000, 1500, 2000, 2500 and 3000 metres with a minimum drop surrounding peak as 250 m
+need to open DEM, and identify high points/ peaks within array of 1000, 1500,
+2000, 2500 and 3000 metres with a minimum drop surrounding peak as 250 m
 http://nbviewer.ipython.org/github/demotu/BMC/blob/master/notebooks/DetectPeaks.ipynb
 
-"""
-
 # convolution? moving window size -- then find peaks? -- have a look in the 'calcSlopeDegrees.py'
+# do I want to fill seperate arrays?
 
-"""
-use window to go through array DEM
+print "Identifying 'peaks'..."
+Unfortunately, after spending a week on this, I've worked out it isn't the method
+ I require (will now use from Landserf temporarily) -- however, this may prove useful at some stage
 
-fill 6 arrays
-
-one -- if cell is >= 1000 and difference between all surrounding cells is greater than 250 (all peaks)
-2 -- if cell is >= 1000 and < 1500 and diff between etc.
-3 -- if cell is >= 1500 and < 2000 and " "
-4 -- if cell is >= 2000 and < 2500 and " "
-5 -- if cell is >= 2500 and < 3000 and " "
-6 -- if cell is >= 3000 and " "
+peak_thres = numpy.array([1000., 1500., 2000., 2500., 3000., 3500., 4000.])
+peak_drop = 250.
+peaks = numpy.zeros(DEM.shape)
+peaks2 = numpy.zeros(DEM.shape)
+for j in range(1,DEM.shape[1] - 1):
+    for i in range(1, DEM.shape[0] - 1):
+        neighbours = numpy.array([DEM[i-1,j-1], DEM[i-1,j], DEM[i-1,j+1],
+                                  DEM[i,j-1], DEM[i,j+1],
+                                  DEM[i+1,j-1], DEM[i+1,j], DEM[i+1,j+1]])
+        if (DEM[i,j] >= peak_thres[0,]) and (DEM[i,j] < peak_thres[1,]) and (((DEM[i,j] - neighbours) >= peak_drop).all()):
+            peaks[i,j] = 1 #peak_thres[0,]
+        elif (DEM[i,j] >= peak_thres[1,]) and (DEM[i,j] < peak_thres[2,]) and (((DEM[i,j] - neighbours) >= peak_drop).all()):
+            peaks[i,j] = 1 #peak_thres[1,]
+        elif (DEM[i,j] >= peak_thres[2,]) and (DEM[i,j] < peak_thres[3,]) and (((DEM[i,j] - neighbours) >= peak_drop).all()):
+            peaks[i,j] = 1 #peak_thres[3,]
+        elif (DEM[i,j] >= peak_thres[3,]) and (DEM[i,j] < peak_thres[4,]) and (((DEM[i,j] - neighbours) >= peak_drop).all()):
+            peaks[i,j] = 1 #peak_thres[3,]
+        elif (DEM[i,j] >= peak_thres[4,]) and (DEM[i,j] < peak_thres[5,]) and (((DEM[i,j] - neighbours) >= peak_drop).all()):
+            peaks[i,j] = 1 #peak_thres[4,]
+        else:
+            peaks[i,j] = 0
+print 'Done.'
 """
 
 # Peak density
-"""
-density of peaks per fishnet
-
-point density
-"""
-
-
+print 'Calculating peak density per grid cell...'
+all_peaks_subset = peaks1000[0:3000, 0:2500]
+peak_dens_max, peak_dens_min, peak_dens_range, peak_dens_sum, regions = grid_range(all_peaks_subset, factor)
+print 'Done.'
 
 ## Calculate elevation range
 print 'Calculating elevation range per grid cell...'
 DEM_subset = DEM[0:3000, 0:2500]
-elev_max, elev_min, elev_range, regions = grid_range(DEM_subset, factor)
+elev_max, elev_min, elev_range, elev_sum, regions = grid_range(DEM_subset, factor)
 # numpy.savetxt(output_folder + 'elev_range.txt', elev_range)
 print 'Done.'
 
@@ -176,7 +221,7 @@ print 'Done.'
 
 ## Calculate slope range
 slope_subset = slope[0:3000,0:2500]
-slope_max, slope_min, slope_range, regions = grid_range(slope_subset, factor)
+slope_max, slope_min, slope_range, slope_sum, regions = grid_range(slope_subset, factor)
 print 'Calculating slope range per grid cell...'
 # numpy.savetxt(output_folder + 'slope_range.txt', slope_range)
 print 'Done.'
@@ -186,7 +231,7 @@ print 'Done.'
 # need an if loop otherwise will overwrite... 
 #slope_test[slope_range>tree_slope_thres] = 1
 
-"""  Need to classify these... put into binary, then grid (based upon thresholds above)? """
+"""  Do I need to classify these... put into binary, then grid (based upon thresholds above)? """
 
 ## Calculate hypsometry (elevation over area) -- chuck this into a defined function?
 # Monumentally inefficient loop (probably...)
@@ -210,7 +255,7 @@ for i in range(0,int(last_box)): # 0,last_box
         print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
         continue
     else:
-        #fig_hist = plt.figure(1)
+        #fig_hist = plt.figure(i)
         n, bins, patches = plt.hist(hypso_d[~numpy.isnan(hypso_d)], bins=100) # Histo plot, get rid of remaining NaNs
         #plt.show() # can output plots, but slow...!!
         
@@ -261,6 +306,9 @@ skewness_grid = skewness_test.reshape(p.shape)
 is cell in bimodal_grid == 1:
     
     else 
+    
+    
+http://nbviewer.ipython.org/github/gumption/Python_for_Data_Science/blob/master/4_Python_Simple_Decision_Tree.ipynb
 """
 
 # Use ravelled lists...?
@@ -292,7 +340,26 @@ plt.savefig(output_folder + 'slope_plot.eps', dpi=1200)
 print 'Slope plotted successfully -- ' + output_folder + 'slope_plot.eps'
 
 ## Outputs
+# Identified Peaks
+fig_elev_range = plt.figure(4)
+fig_elev_range.suptitle('identified_peaks', fontsize=12)
+plt.imshow(peaks1000, interpolation='nearest', cmap='Greys', extent=[0,2500,0,3000]) # interpolation 'nearest' stops blurry figures!
+plt.xlabel('Distance (km)', fontsize=10)
+plt.ylabel('Distance (km)', fontsize=10)
+cbar=plt.colorbar(extend='neither')
+plt.savefig(output_folder + 'DEM_peaks_plot' + str(factor) + '.eps', dpi=1200)
+print 'Identified peaks plotted successfully -- ' + output_folder + 'DEM_peaks_plot.eps'
+
 # Peak Density
+fig_elev_range = plt.figure(5)
+fig_elev_range.suptitle('peak_density', fontsize=12)
+plt.imshow(peak_dens_sum, interpolation='nearest', extent=[0,2500,0,3000]) # interpolation 'nearest' stops blurry figures!
+plt.xlabel('Distance (km)', fontsize=10)
+plt.ylabel('Distance (km)', fontsize=10)
+cbar=plt.colorbar(extend='neither')
+cbar.set_label('Elevation range (m)', fontsize=10)
+plt.savefig(output_folder + 'DEM_peak_dens' + str(factor) + '.eps', dpi=1200)
+print 'Peak density plotted successfully -- ' + output_folder + 'DEM_peak_dens.eps'
 
 """
 need to do mulitple plot with different 'peak' elevations as coloured dots,
@@ -300,7 +367,7 @@ then with the peak denisty grid underlain
 """
 
 # Elevation Range
-fig_elev_range = plt.figure(4)
+fig_elev_range = plt.figure(6)
 fig_elev_range.suptitle('elev_range', fontsize=12)
 plt.imshow(elev_range, interpolation='nearest', extent=[0,2500,0,3000]) # interpolation 'nearest' stops blurry figures!
 plt.xlabel('Distance (km)', fontsize=10)
@@ -311,7 +378,7 @@ plt.savefig(output_folder + 'DEM_elev_range' + str(factor) + '.eps', dpi=1200)
 print 'Elevation range plotted successfully -- ' + output_folder + 'DEM_elev_range.eps'
 
 # Slope Range
-fig_slope_range = plt.figure(5)
+fig_slope_range = plt.figure(7)
 fig_slope_range.suptitle('slope_range', fontsize=12)
 plt.imshow(slope_range, interpolation='nearest', extent=[0,2500,0,3000])
 plt.xlabel('Distance (km)', fontsize=10)
@@ -322,7 +389,7 @@ plt.savefig(output_folder + 'DEM_slope_range' + str(factor) + '.eps', dpi=1200)
 print 'Slope range plotted successfully -- ' + output_folder + 'DEM_slope_range.eps'
 
 # Binary Skewness (test)
-fig_skew = plt.figure(6)
+fig_skew = plt.figure(8)
 fig_skew.suptitle('skewness', fontsize=12)
 plt.imshow(skewness_grid, cmap='Greys', interpolation='nearest', extent=[0,2500,0,3000])
 plt.xlabel('Distance (km)', fontsize=10)
@@ -332,7 +399,7 @@ plt.savefig(output_folder + 'DEM_skewness_test' + str(factor) + '.eps', dpi=1200
 print 'Skewness mask plotted successfully -- ' + output_folder + 'DEM_skewness_test.eps'
 
 # Binary Modal (test)
-fig_bimodal = plt.figure(7)
+fig_bimodal = plt.figure(9)
 fig_bimodal.suptitle('bimodal', fontsize=12)
 plt.imshow(bimodal_grid, cmap='Greys', interpolation='nearest', extent=[0,2500,0,3000])
 plt.xlabel('Distance (km)', fontsize=10)
