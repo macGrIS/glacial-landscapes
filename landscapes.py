@@ -100,7 +100,6 @@ slope_test = numpy.pi/2. - numpy.arctan(numpy.sqrt(x*x + y*y))
 for i in numpy.nditer(slope_test, op_flags=['readwrite']):
     i[...] = numpy.degrees(i)
 
-
 #rad2deg = 180.0 / math.pi
 #slope_test2 = 90.0 - arctan(sqrt(x*x + y*y)) * rad2deg
 #
@@ -162,8 +161,7 @@ peaks1000[peaks1000 == 5.] = 1.
 #peaks3000[numpy.logical_or(peaks3000 > 5., peaks3000 < 5.)] = 0.
 #peaks3000[peaks3000 == 5.] = 1.
 
-
-# Identify peaks
+# Identify peaks - broken methodology -- maybe try local maximums?
 """
 need to open DEM, and identify high points/ peaks within array of 1000, 1500,
 2000, 2500 and 3000 metres with a minimum drop surrounding peak as 250 m
