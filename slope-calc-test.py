@@ -16,7 +16,6 @@ from math import sqrt
 from matplotlib import pyplot as plt
 import os, sys, shutil
 
-
 def slopePython(inBlock, outBlock, inXSize, inYSize, zScale=1):
 
     """ Calculate slope using Python.
