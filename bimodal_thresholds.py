@@ -39,12 +39,13 @@ def grid_range(array, factor):
 ### Define input
 input_folder = '/Users/mc14909/Dropbox/Bristol/data/glacial-landscapes/'
 output_folder = '/Users/mc14909/Dropbox/Bristol/scratch/glacial-landscapes/'
+threshold_folder = output_folder + 'threshold_test/'
 inputDEM = input_folder + 'GIA_bedDEM_clipped2.tif'
 inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this (see below), until then, using gdaldem slope output
 
 ### Define parameters and metrics
 ## size of grid/ fishnet (in km -- for 1km posting data) -- LOOK INTO FUZZY BOXES LATER
-factor = 100 # doesn't seem to work for 150, or 200km grid sizes (why??)
+factor = 50 # doesn't seem to work for 150, or 200km grid sizes (why??)
 print 'Grid cell size = ' + str(factor) + ' km.' # units depend on pixel 'size'
 
 ## Input subsets (specific catchments?) - "do you wish to subset the data?" (perhaps at end...?)
@@ -166,7 +167,7 @@ for i in range(0,int(last_box)): # 0,last_box
     null_data = numpy.isnan(hypso_d[:,0]).any() # too perscriptive? 
     # null_data = numpy.isnan(hypso_d[:,0]).all() # too liberal? maybe use 10%?? (not sure how, also arbitrary)
     if null_data == True: 
-        print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
+        #print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
         continue
     else:
         #fig_hist = plt.figure(1) # have this as plt.figure(i)? then below as i+1 etc.
@@ -182,7 +183,7 @@ for i in range(0,int(last_box)): # 0,last_box
         
     ## Bimodal test -- are there other ways to do this?
     # Thresholds    
-    x_threshold = 0.4 # X-axis (Distance/ Location) threshold -- a percentage of the range of the data, bins further away from this (around peak bin) can be considered separate peaks
+    x_threshold = 0.3 # X-axis (Distance/ Location) threshold -- a percentage of the range of the data, bins further away from this (around peak bin) can be considered separate peaks
     y_threshold = 0.2 # Y-axis (Peak) threshold -- a percentage of the count in the peak bin, bins with more members can be considered peaks
     
     # Tidy data
@@ -208,6 +209,8 @@ for i in range(0,int(last_box)): # 0,last_box
     test[distance<distance_threshold]=0
     # Result
     bimodal_test[i,0]=numpy.sum(test)
+
+print 'Done.'
 
 bimodal_test[bimodal_test>0]=1 # make bimodal_test binary
 
@@ -237,7 +240,7 @@ plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='both')
 cbar.set_label('Elevation (m)', fontsize=10)
-plt.savefig(output_folder + 'DEM_plot.eps', dpi=1200)
+plt.savefig(output_folder + 'DEM_plot.eps', dpi=300)
 print 'DEM plotted successfully -- ' + output_folder + 'DEM_plot.eps'
 
 # Slope
@@ -248,7 +251,7 @@ plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
 cbar.set_label('slope', fontsize=10)
-plt.savefig(output_folder + 'slope_plot.eps', dpi=1200)
+plt.savefig(output_folder + 'slope_plot.eps', dpi=300)
 print 'Slope plotted successfully -- ' + output_folder + 'slope_plot.eps'
 
 ## Outputs
@@ -259,7 +262,7 @@ plt.imshow(peaks1000, interpolation='nearest', cmap='Greys', extent=[0,2500,0,30
 plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
-plt.savefig(output_folder + 'DEM_peaks_plot' + str(factor) + '.eps', dpi=1200)
+plt.savefig(output_folder + 'DEM_peaks_plot' + str(factor) + '.eps', dpi=300)
 print 'Identified peaks plotted successfully -- ' + output_folder + 'DEM_peaks_plot.eps'
 
 # Peak Density
@@ -270,13 +273,8 @@ plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
 cbar.set_label('Elevation range (m)', fontsize=10)
-plt.savefig(output_folder + 'DEM_peak_dens' + str(factor) + '.eps', dpi=1200)
+plt.savefig(output_folder + 'DEM_peak_dens' + str(factor) + '.eps', dpi=300)
 print 'Peak density plotted successfully -- ' + output_folder + 'DEM_peak_dens.eps'
-
-"""
-need to do mulitple plot with different 'peak' elevations as coloured dots,
-then with the peak denisty grid underlain
-"""
 
 # Elevation Range
 fig_elev_range = plt.figure(6)
@@ -286,7 +284,7 @@ plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
 cbar.set_label('Elevation range (m)', fontsize=10)
-plt.savefig(output_folder + 'DEM_elev_range' + str(factor) + '.eps', dpi=1200)
+plt.savefig(output_folder + 'DEM_elev_range' + str(factor) + '.eps', dpi=300)
 print 'Elevation range plotted successfully -- ' + output_folder + 'DEM_elev_range.eps'
 
 # Slope Range
@@ -297,7 +295,7 @@ plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
 cbar.set_label('Slope range (deg)', fontsize=10)
-plt.savefig(output_folder + 'DEM_slope_range' + str(factor) + '.eps', dpi=1200)
+plt.savefig(output_folder + 'DEM_slope_range' + str(factor) + '.eps', dpi=300)
 print 'Slope range plotted successfully -- ' + output_folder + 'DEM_slope_range.eps'
 
 # Binary Skewness (test)
@@ -307,7 +305,7 @@ plt.imshow(skewness_grid, cmap='Greys', interpolation='nearest', extent=[0,2500,
 plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
-plt.savefig(output_folder + 'DEM_skewness_test' + str(factor) + '.eps', dpi=1200)
+plt.savefig(output_folder + 'DEM_skewness_test_' + str(factor) + '.eps', dpi=300)
 print 'Skewness mask plotted successfully -- ' + output_folder + 'DEM_skewness_test.eps'
 
 # Binary Modal (test)
@@ -317,7 +315,7 @@ plt.imshow(bimodal_grid, cmap='Greys', interpolation='nearest', extent=[0,2500,0
 plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
-plt.savefig(output_folder + 'DEM_bimodal_test' + str(factor) + '.eps', dpi=1200)
+plt.savefig(threshold_folder + 'DEM_bimodal_test' + str(factor) + '_' + str(x_threshold) + '_' + str(y_threshold) + '.eps', dpi=300)
 print 'Bimodal mask plotted successfully -- ' + output_folder + 'DEM_bimodal_test.eps'
 
 ## Result
@@ -328,5 +326,5 @@ plt.imshow(landscape_gd, interpolation='nearest', extent=[0,2500,0,3000])
 plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
-plt.savefig(output_folder + 'DEM_landscapes_' + str(factor) + 'km.eps', dpi=1200)
+plt.savefig(threshold_folder + 'DEM_landscapes_' + str(factor) + 'km_' + str(x_threshold) + '_' + str(y_threshold) + '.eps', dpi=300)
 print 'Classified landscapes plotted successfully -- ' + output_folder + 'DEM_landscapes.eps'
