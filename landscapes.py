@@ -20,7 +20,7 @@ from matplotlib import pyplot as plt
 import os, sys, shutil
 
 ### Functions
-# scipy.ndimage used to calculate ranges (and min and max) of values (array) for different size grids (factor)
+# scipy.ndimage used to calculate statistics (min, max, range and sum) of values (array) for different size grids (factor)
 def grid_range(array, factor):
     assert isinstance(factor, int), type(factor)
     sx, sy = array.shape
@@ -44,7 +44,7 @@ inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this 
 
 ### Define parameters and metrics
 ## size of grid/ fishnet (in km -- for 1km posting data) -- LOOK INTO FUZZY BOXES LATER
-factor = 250 # doesn't seem to work for 150, or 200km grid sizes (why??)
+factor = 100 # doesn't seem to work for 150, or 200km grid sizes (why??)
 print 'Grid cell size = ' + str(factor) + ' km.' # units depend on pixel 'size'
 
 ## Input subsets (specific catchments?) - "do you wish to subset the data?" (perhaps at end...?)
@@ -299,7 +299,6 @@ landscape_gd[numpy.logical_and(numpy.logical_and(elev_range >= tree_elev_upper_t
 # Mainly Alpine
 landscape_gd[numpy.logical_and(numpy.logical_and(elev_range >= tree_elev_upper_thres, skewness_grid == 0.), peak_density > tree_pd_thres)] = 3.
 
-
 ### Plotting
 ## Inputs
 # DEM
@@ -338,7 +337,7 @@ print 'Identified peaks plotted successfully -- ' + output_folder + 'DEM_peaks_p
 # Peak Density
 fig_peak_density = plt.figure(5)
 fig_peak_density.suptitle('peak_density', fontsize=12)
-plt.imshow(peak_density, interpolation='nearest', extent=[0,2500,0,3000]) # interpolation 'nearest' stops blurry figures!
+plt.imshow(peak_density, interpolation='nearest', extent=[0,2500,0,3000]) # extent changes the extent of image (so axes read correctly) -- should probably automate this (for varying size arrays)
 plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
@@ -354,7 +353,7 @@ then with the peak denisty grid underlain
 # Elevation Range
 fig_elev_range = plt.figure(6)
 fig_elev_range.suptitle('elev_range', fontsize=12)
-plt.imshow(elev_range, interpolation='nearest', extent=[0,2500,0,3000]) # interpolation 'nearest' stops blurry figures!
+plt.imshow(elev_range, interpolation='nearest', extent=[0,2500,0,3000])
 plt.xlabel('Distance (km)', fontsize=10)
 plt.ylabel('Distance (km)', fontsize=10)
 cbar=plt.colorbar(extend='neither')
