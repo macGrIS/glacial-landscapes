@@ -1,4 +1,5 @@
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-\
+from __future__ import division
 """
 	4th March, 2015; 18:12 GMT
 	Script by Michael A. Cooper (t: @macooperr; git: @macGrIS)
@@ -11,6 +12,7 @@ scriptname = 'Landscapes of Glacial Erosion -- Classifier'
 print 'Running script: ' + scriptname + '.'
 
 # Import python modules
+
 import gdal
 from gdalconst import *
 import numpy
@@ -23,16 +25,17 @@ import os, sys, shutil
 # scipy.ndimage used to calculate ranges (and min and max) of values (array) for different size grids (factor)
 def grid_range(array, factor):
     assert isinstance(factor, int), type(factor)
-    sx, sy = array.shape
-    X, Y = numpy.ogrid[0:sx, 0:sy]
-    regions = sy/factor * (X/factor) + (Y/factor)
-    block_max = ndimage.maximum(array, labels=regions, index=numpy.arange(regions.max() + 1))
-    block_max.shape = (sx/factor, sy/factor)
+    # need an assert statement to catch whether the factor is divisible by shape
+    sy, sx = array.shape
+    Y, X = numpy.ogrid[0:sy, 0:sx] # defines X Y axes -- not an entire grid
+    regions = sx/factor * (Y+1/factor) + (X+1/factor) # ensure that sx is longest axis of array -- make it run the largest array
+    block_max = ndimage.maximum(array, labels=regions, index=numpy.arange(regions.max()))
+    block_max.shape = (sy/factor, sx/factor)
     block_min = ndimage.minimum(array, labels=regions, index=numpy.arange(regions.max() + 1))
-    block_min.shape = (sx/factor, sy/factor)
+    block_min.shape = (sy/factor, sx/factor)
     block_range = block_max - block_min
     block_sum = ndimage.sum(array, labels=regions, index=numpy.arange(regions.max() + 1))
-    block_sum.shape = (sx/factor, sy/factor)
+    block_sum.shape = (sy/factor, sx/factor)
     return block_max, block_min, block_range, block_sum, regions;
 
 ### Ask user for deets...??
@@ -44,7 +47,7 @@ inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this 
 
 ### Define parameters and metrics
 ## size of grid/ fishnet (in km -- for 1km posting data) -- LOOK INTO FUZZY BOXES LATER
-factor = 100 # doesn't seem to work for 150, or 200km grid sizes (why??)
+factor = 100 # doesn't seem to work for 150, or 200km grid sizes (why??) # not actually a factor -- call this target grid size
 print 'Grid cell size = ' + str(factor) + ' km.' # units depend on pixel 'size'
 
 ## Input subsets (specific catchments?) - "do you wish to subset the data?" (perhaps at end...?)
@@ -89,8 +92,8 @@ p = numpy.zeros([peaky/factor,peakx/factor]) # new grid of factor size size -- t
 ### Calculate metrics
 ## Calculate slope -- need to add in this (possibly solved through convolution)
 print 'Calculating slope...'
-""" 
-Now, I'm not a mathematician, so I'm not sure how this works -- but this method 
+"""
+Now, I'm not a mathematician, so I'm not sure how this works -- but this method
 of calculating slope is not correct (yields a roughly inverse, but still different
 result than that of gdaldem slope, and ArcGIS slope...)
 
@@ -236,28 +239,28 @@ for i in range(0,int(last_box)): # 0,last_box
     hypso_c = hypso_b[A,1]
     hypso_d = numpy.swapaxes(hypso_c, 0, 1)
     # Weed out null data/ NaNs
-    null_data = numpy.isnan(hypso_d[:,0]).any() # too perscriptive? 
+    null_data = numpy.isnan(hypso_d[:,0]).any() # too perscriptive?
     # null_data = numpy.isnan(hypso_d[:,0]).all() # too liberal? maybe use 10%?? (not sure how, also arbitrary)
-    if null_data == True: 
-        print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
+    if null_data == True:
+        #print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
         continue
     else:
         #fig_hist = plt.figure(1) # have this as plt.figure(i)? then below as i+1 etc.
         n, bins, patches = plt.hist(hypso_d[~numpy.isnan(hypso_d)], bins=100) # Histo plot, get rid of remaining NaNs
         #plt.show() # can output plots, but slow...!!
-        
+
     ## Skewness test
     skew = stats.skew(hypso_d[~numpy.isnan(hypso_d)]) # perform skewness measure on all but NaN values -- only relevant if not using .all() above
     if skew > 0.1: # Any grid with a skew of greater than 0.1 is classed as positively skewed (change this to threshold up top)
         skewness_test[i,0] = 1
     else:
         skewness_test[i,0] = 0
-        
+
     ## Bimodal test -- are there other ways to do this?
-    # Thresholds    
+    # Thresholds
     x_threshold = 0.4 # X-axis (Distance/ Location) threshold -- a percentage of the range of the data, bins further away from this (around peak bin) can be considered separate peaks
     y_threshold = 0.2 # Y-axis (Peak) threshold -- a percentage of the count in the peak bin, bins with more members can be considered peaks
-    
+
     # Tidy data
     bincentres = 0.5*(bins[1:]+bins[:-1]) # find bincenters (as bins produces a 101 length array)
     histo_data = numpy.concatenate(([n],[bincentres])) # joins n (number in bin) with bincentres (bin placement)
@@ -269,13 +272,13 @@ for i in range(0,int(last_box)): # 0,last_box
     peak_location = sort[0,1] # the rank of the bin location -- where the bin (out of 100 along x) was
     peak_count = sort[0,0] # the count of the largest bin count -- how many values were that bin
     # Calculate distance from the largest bin
-    distance = numpy.sqrt((histo_data[:,1]-histo_data[peak_location,1])**2) 
+    distance = numpy.sqrt((histo_data[:,1]-histo_data[peak_location,1])**2)
     # Calculate threshold above which data can be considered a peak
     peak_threshold = y_threshold*peak_count
     # Calculate threshold distance over which data can be considered a separate peak
     data_range = (numpy.max(histo_data[:,1]-numpy.min(histo_data[:,1])))
     distance_threshold = x_threshold*data_range
-    # Test   
+    # Test
     test = numpy.zeros([100, 1])
     test[histo_data[:,0]>peak_threshold]=1
     test[distance<distance_threshold]=0
