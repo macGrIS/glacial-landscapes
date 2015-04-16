@@ -29,7 +29,7 @@ def grid_range(array, factor):
     sy, sx = array.shape
     Y, X = numpy.ogrid[0:sy, 0:sx] # defines X Y axes -- not an entire grid
     regions = sx/factor * (Y+1/factor) + (X+1/factor) # ensure that sx is longest axis of array -- make it run the largest array
-    block_max = ndimage.maximum(array, labels=regions, index=numpy.arange(regions.max()))
+    block_max = ndimage.maximum(array, labels=regions, index=numpy.arange(regions.max() + 1)) # need to remove the +1 ??
     block_max.shape = (sy/factor, sx/factor)
     block_min = ndimage.minimum(array, labels=regions, index=numpy.arange(regions.max() + 1))
     block_min.shape = (sy/factor, sx/factor)
