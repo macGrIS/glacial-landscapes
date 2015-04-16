@@ -3,8 +3,8 @@ from __future__ import division
 """
 	4th March, 2015; 18:12 GMT
 	Script by Michael A. Cooper (t: @macooperr; git: @macGrIS)
-	to produce classification maps of 'landscapes of glacial erosion' (as per Jamieson, et
-	al., 2014; Sugden and John, 1975) from GeoTIFF DEMs.
+	to produce classification maps of 'landscapes of glacial erosion' (as per Ja
+	mieson, et al., 2014; Sugden and John, 1975) from GeoTIFF DEMs.
 """
 
 ### Header
@@ -90,9 +90,8 @@ p = numpy.zeros([peaky/factor,peakx/factor]) # new grid of factor size size -- t
 ### Calculate metrics
 ## Calculate slope -- need to add in this (possibly solved through convolution)
 print 'Calculating slope...'
-"""
-snip1
-"""
+# snip1
+
 print 'Done.'
 # Open slope
 gSlope = gdal.Open(inputSlope, GA_ReadOnly)
@@ -124,9 +123,7 @@ peaks1000[numpy.logical_or(peaks1000 > 5., peaks1000 < 5.)] = 0.
 peaks1000[peaks1000 == 5.] = 1.
 
 ## Identify peaks - broken methodology -- maybe try local maximums?
-"""
-snip2
-"""
+# snip2
 
 ## Calculate peak density
 print 'Calculating peak density per grid cell...'
@@ -211,7 +208,6 @@ for i in range(0,int(last_box)): # 0,last_box
     bimodal_test[i,0]=numpy.sum(test)
 
 bimodal_test[bimodal_test>0]=1 # make bimodal_test binary
-
 bimodal_grid=bimodal_test.reshape(p.shape) # need to automate reshape -- perhaps elev_range.shape? (but if thats been done wrong then, could go wrong later)
 skewness_grid = skewness_test.reshape(p.shape)
 
@@ -227,7 +223,7 @@ landscape_gd[numpy.logical_and(numpy.logical_and(elev_range >= tree_elev_upper_t
 # Mainly Alpine
 landscape_gd[numpy.logical_and(numpy.logical_and(elev_range >= tree_elev_upper_thres, skewness_grid == 0.), peak_density > tree_pd_thres)] = 3.
 
-### Plotting
+### Plotting -- make function for plots, save lines of code
 ## Inputs
 # DEM
 fig_DEM = plt.figure(2)
