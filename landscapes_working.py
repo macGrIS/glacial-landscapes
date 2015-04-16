@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-\
-from __future__ import division
+# -*- coding: utf-8 -*-
 """
 	4th March, 2015; 18:12 GMT
 	Script by Michael A. Cooper (t: @macooperr; git: @macGrIS)
-	to produce classification maps of 'landscapes of glacial erosion' (as per Ja
-	mieson, et al., 2014; Sugden and John, 1975) from GeoTIFF DEMs.
+	to produce classification maps of 'landscapes of glacial erosion' (as per Jamieson, et
+	al., 2014; Sugden and John, 1975) from GeoTIFF DEMs.
 """
 
 ### Header
@@ -12,7 +11,6 @@ scriptname = 'Landscapes of Glacial Erosion -- Classifier'
 print 'Running script: ' + scriptname + '.'
 
 # Import python modules
-
 import gdal
 from gdalconst import *
 import numpy
@@ -25,17 +23,16 @@ import os, sys, shutil
 # scipy.ndimage used to calculate statistics (min, max, range and sum) of values (array) for different size grids (factor)
 def grid_range(array, factor):
     assert isinstance(factor, int), type(factor)
-    # need an assert statement to catch whether the factor is divisible by shape
-    sy, sx = array.shape
-    Y, X = numpy.ogrid[0:sy, 0:sx] # defines X Y axes -- not an entire grid
-    regions = sx/factor * (Y+1/factor) + (X+1/factor) # ensure that sx is longest axis of array -- make it run the largest array -- actully ONLY works with shortest?!
-    block_max = ndimage.maximum(array, labels=regions, index=numpy.arange(regions.max() + 1)) # need to remove the +1 ??
-    block_max.shape = (sy/factor, sx/factor)
+    sx, sy = array.shape
+    X, Y = numpy.ogrid[0:sx, 0:sy]
+    regions = sy/factor * (X/factor) + (Y/factor)
+    block_max = ndimage.maximum(array, labels=regions, index=numpy.arange(regions.max() + 1))
+    block_max.shape = (sx/factor, sy/factor)
     block_min = ndimage.minimum(array, labels=regions, index=numpy.arange(regions.max() + 1))
-    block_min.shape = (sy/factor, sx/factor)
+    block_min.shape = (sx/factor, sy/factor)
     block_range = block_max - block_min
     block_sum = ndimage.sum(array, labels=regions, index=numpy.arange(regions.max() + 1))
-    block_sum.shape = (sy/factor, sx/factor)
+    block_sum.shape = (sx/factor, sy/factor)
     return block_max, block_min, block_range, block_sum, regions;
 
 ### Ask user for deets...??
@@ -47,11 +44,13 @@ inputSlope = input_folder + 'GDAL_slope2.tif' # must be a way to calculate this 
 
 ### Define parameters and metrics
 ## size of grid/ fishnet (in km -- for 1km posting data) -- LOOK INTO FUZZY BOXES LATER
-factor = 100 # doesn't seem to work for 150, or 200km grid sizes (why??) # not actually a factor -- call this target grid size
+factor = 100 # doesn't seem to work for 150, or 200km grid sizes (why??)
 print 'Grid cell size = ' + str(factor) + ' km.' # units depend on pixel 'size'
 
 ## Input subsets (specific catchments?) - "do you wish to subset the data?" (perhaps at end...?)
 #local_factor = 50 # factor of subset
+
+# need to set up geolocation/ geotransform
 
 # Decision Tree (based upon Jamieson, et al. 2014) -- Change for 'sensitivity analysis' -- ask for custom, or standard.
 # Elevation range threshold lower
@@ -90,8 +89,26 @@ p = numpy.zeros([peaky/factor,peakx/factor]) # new grid of factor size size -- t
 ### Calculate metrics
 ## Calculate slope -- need to add in this (possibly solved through convolution)
 print 'Calculating slope...'
-# snip1
-
+"""
+Now, I'm not a mathematician, so I'm not sure how this works -- but this method
+of calculating slope is not correct (yields a roughly inverse, but still different
+result than that of gdaldem slope, and ArcGIS slope...)
+Until I work this out, we use GDAL output...
+x, y = numpy.gradient(DEM, X) # calculate gradient with sample distance X (define)
+slope_test = numpy.pi/2. - numpy.arctan(numpy.sqrt(x*x + y*y))
+for i in numpy.nditer(slope_test, op_flags=['readwrite']):
+    i[...] = numpy.degrees(i)
+#rad2deg = 180.0 / math.pi
+#slope_test2 = 90.0 - arctan(sqrt(x*x + y*y)) * rad2deg
+#
+#c = numpy.where(numpy.isnan(slope_test))
+#slope_test[c] = -9999
+#numpy.savetxt(output_folder + 'python_slope_test.txt', slope_test)
+#
+#d = numpy.where(numpy.isnan(slope_test2))
+#slope_test2[c] = -9999
+#numpy.savetxt(output_folder + 'python_slope_test2.txt', slope_test2)
+"""
 print 'Done.'
 # Open slope
 gSlope = gdal.Open(inputSlope, GA_ReadOnly)
@@ -113,17 +130,68 @@ print 'Null values set.'
 
 ## Peak analysis
 # Open peak detection results from Landserf -- value of 5 depicts summit (to use for peak density)
-# Currently only using peaks1000 (as it displays ALL peaks over 1000 m in elevation) -- may require others later (snip peaks)
+# Currently only using peaks1000 (as it displays ALL peaks over 1000 m in elevation) -- may require others later
 input_peaks1000 = input_folder + 'peak_anal/peaks_1000.tif'
+#input_peaks1500 = input_folder + 'peak_anal/peaks_1500.tif'
+#input_peaks2000 = input_folder + 'peak_anal/peaks_2000.tif'
+#input_peaks2500 = input_folder + 'peak_anal/peaks_2500.tif'
+#input_peaks3000 = input_folder + 'peak_anal/peaks_3000.tif'
 
 gPeaks1000 = gdal.Open(input_peaks1000, GA_ReadOnly)
 peaks1000 = gPeaks1000.ReadAsArray(0, 0, gPeaks1000.RasterXSize, gPeaks1000.RasterYSize).astype(numpy.float)
+#gPeaks1500 = gdal.Open(input_peaks2500, GA_ReadOnly)
+#peaks1500 = gPeaks1500.ReadAsArray(0, 0, gPeaks1500.RasterXSize, gPeaks1500.RasterYSize).astype(numpy.float)
+#gPeaks2000 = gdal.Open(input_peaks2000, GA_ReadOnly)
+#peaks2000 = gPeaks2000.ReadAsArray(0, 0, gPeaks2000.RasterXSize, gPeaks2000.RasterYSize).astype(numpy.float)
+#gPeaks2500 = gdal.Open(input_peaks2500, GA_ReadOnly)
+#peaks2500 = gPeaks2500.ReadAsArray(0, 0, gPeaks2500.RasterXSize, gPeaks2500.RasterYSize).astype(numpy.float)
+#gPeaks3000 = gdal.Open(input_peaks3000, GA_ReadOnly)
+#peaks3000 = gPeaks3000.ReadAsArray(0, 0, gPeaks3000.RasterXSize, gPeaks3000.RasterYSize).astype(numpy.float)
 
 peaks1000[numpy.logical_or(peaks1000 > 5., peaks1000 < 5.)] = 0.
 peaks1000[peaks1000 == 5.] = 1.
+#peaks1500[numpy.logical_or(peaks1500 > 5., peaks1500 < 5.)] = 0.
+#peaks1500[peaks1500 == 5.] = 1.
+#peaks2000[numpy.logical_or(peaks2000 > 5., peaks2000 < 5.)] = 0.
+#peaks2000[peaks2000 == 5.] = 1.
+#peaks2500[numpy.logical_or(peaks2500 > 5., peaks2500 < 5.)] = 0.
+#peaks2500[peaks2500 == 5.] = 1.
+#peaks3000[numpy.logical_or(peaks3000 > 5., peaks3000 < 5.)] = 0.
+#peaks3000[peaks3000 == 5.] = 1.
 
 ## Identify peaks - broken methodology -- maybe try local maximums?
-# snip2
+"""
+need to open DEM, and identify high points/ peaks within array of 1000, 1500,
+2000, 2500 and 3000 metres with a minimum drop surrounding peak as 250 m
+http://nbviewer.ipython.org/github/demotu/BMC/blob/master/notebooks/DetectPeaks.ipynb
+# convolution? moving window size -- then find peaks? -- have a look in the 'calcSlopeDegrees.py'
+# do I want to fill seperate arrays?
+print "Identifying 'peaks'..."
+Unfortunately, after spending a week on this, I've worked out it isn't the method
+ I require (will now use from Landserf temporarily) -- however, this may prove useful at some stage
+peak_thres = numpy.array([1000., 1500., 2000., 2500., 3000., 3500., 4000.])
+peak_drop = 250.
+peaks = numpy.zeros(DEM.shape)
+peaks2 = numpy.zeros(DEM.shape)
+for j in range(1,DEM.shape[1] - 1):
+    for i in range(1, DEM.shape[0] - 1):
+        neighbours = numpy.array([DEM[i-1,j-1], DEM[i-1,j], DEM[i-1,j+1],
+                                  DEM[i,j-1], DEM[i,j+1],
+                                  DEM[i+1,j-1], DEM[i+1,j], DEM[i+1,j+1]])
+        if (DEM[i,j] >= peak_thres[0,]) and (DEM[i,j] < peak_thres[1,]) and (((DEM[i,j] - neighbours) >= peak_drop).all()):
+            peaks[i,j] = 1 #peak_thres[0,]
+        elif (DEM[i,j] >= peak_thres[1,]) and (DEM[i,j] < peak_thres[2,]) and (((DEM[i,j] - neighbours) >= peak_drop).all()):
+            peaks[i,j] = 1 #peak_thres[1,]
+        elif (DEM[i,j] >= peak_thres[2,]) and (DEM[i,j] < peak_thres[3,]) and (((DEM[i,j] - neighbours) >= peak_drop).all()):
+            peaks[i,j] = 1 #peak_thres[3,]
+        elif (DEM[i,j] >= peak_thres[3,]) and (DEM[i,j] < peak_thres[4,]) and (((DEM[i,j] - neighbours) >= peak_drop).all()):
+            peaks[i,j] = 1 #peak_thres[3,]
+        elif (DEM[i,j] >= peak_thres[4,]) and (DEM[i,j] < peak_thres[5,]) and (((DEM[i,j] - neighbours) >= peak_drop).all()):
+            peaks[i,j] = 1 #peak_thres[4,]
+        else:
+            peaks[i,j] = 0
+print 'Done.'
+"""
 
 ## Calculate peak density
 print 'Calculating peak density per grid cell...'
@@ -164,7 +232,7 @@ for i in range(0,int(last_box)): # 0,last_box
     null_data = numpy.isnan(hypso_d[:,0]).any() # too perscriptive?
     # null_data = numpy.isnan(hypso_d[:,0]).all() # too liberal? maybe use 10%?? (not sure how, also arbitrary)
     if null_data == True:
-        #print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
+        print 'Too many NaN values for cell: ' + str(i) + ', skipping...'
         continue
     else:
         #fig_hist = plt.figure(1) # have this as plt.figure(i)? then below as i+1 etc.
@@ -208,6 +276,7 @@ for i in range(0,int(last_box)): # 0,last_box
     bimodal_test[i,0]=numpy.sum(test)
 
 bimodal_test[bimodal_test>0]=1 # make bimodal_test binary
+
 bimodal_grid=bimodal_test.reshape(p.shape) # need to automate reshape -- perhaps elev_range.shape? (but if thats been done wrong then, could go wrong later)
 skewness_grid = skewness_test.reshape(p.shape)
 
@@ -223,7 +292,7 @@ landscape_gd[numpy.logical_and(numpy.logical_and(elev_range >= tree_elev_upper_t
 # Mainly Alpine
 landscape_gd[numpy.logical_and(numpy.logical_and(elev_range >= tree_elev_upper_thres, skewness_grid == 0.), peak_density > tree_pd_thres)] = 3.
 
-### Plotting -- make function for plots, save lines of code
+### Plotting
 ## Inputs
 # DEM
 fig_DEM = plt.figure(2)

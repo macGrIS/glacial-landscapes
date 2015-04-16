@@ -1,3 +1,5 @@
+# need to set up geolocation/ geotransform
+
 
 """
 snip1
